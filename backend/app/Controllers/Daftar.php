@@ -50,35 +50,41 @@ class Daftar extends ResourceController
      * @return mixed
      */
     public function create()
-    {
-        helper(['form']);
-        $rules = [
-            'username' =>'required',
-            'email' =>'required',
-            'password' =>'required'
-        ];
+{
+    helper(['form']);
+    $rules = [
+        'username' =>'required',
+        'email' =>'required|valid_email|is_unique[daftar.email]',
+        'password' =>'required|min_length[8]'
+    ];
 
-        $data = [
-            'username'=> $this->request->getVar('username'),
-            'email'=> $this->request->getVar('email'),
-            'password'=> $this->request->getVar('password'),
-        ];
+    $data = [
+        'username' => $this->request->getVar('username'),
+        'email' => $this->request->getVar('email'),
+        'password' => $this->request->getVar('password'),
+    ];
 
-        if($this->validate($rules)) return $this->fail($this->validator->getErrors());
-        $model = new DaftarModel();
-        $model->save($data);
-        $response = [
-            // 'status' => 'success',
-            // 'messages' => 'Data berhasil ditambahkan',
-            // 'data' => $data,
-            'status' => 201,
-            'error'  => null,
-            'message' => [
-                'success' => 'Data Inserted'
-            ]
-        ];
-        return $this->respond($response);
+    if (!$this->validate($rules)) {
+        return $this->fail($this->validator->getErrors());
     }
+
+    // Hash the password before saving it
+    $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
+
+    $model = new DaftarModel();
+    $model->save($data);
+
+    $response = [
+        'status' => 201,
+        'error' => null,
+        'message' => [
+            'success' => 'Data Inserted'
+        ]
+    ];
+
+    return $this->respond($response);
+}
+
 
     /**
      * Return the editable properties of a resource object
@@ -110,7 +116,7 @@ class Daftar extends ResourceController
             'password'=> $this->request->getVar('password'),
         ];
 
-        if($this->validate($rules)) return $this->fail($this->validator->getErrors());
+        if(!$this->validate($rules)) return $this->fail($this->validator->getErrors());
         $model = new DaftarModel();
         $findById = $model->find(['id' => $id]);
         if (!$findById) return $this->failNotFound('No Data Found');
@@ -135,7 +141,7 @@ class Daftar extends ResourceController
         $model = new DaftarModel();
         $findById = $model->find(['id' => $id]);
         if (!$findById) return $this->failNotFound('No Data Found');
-        $model->update($id);
+        $model->delete($id);
         $response = [
             'status' => 200,
             'error'  => null,
@@ -145,4 +151,41 @@ class Daftar extends ResourceController
         ];
         return $this->respond($response);
     }
+
+
+    public function login()
+{
+    $email = $this->request->getVar('email');
+    $password = $this->request->getVar('password');
+
+    $registrasiModel = new DaftarModel();
+    $existingUser = $registrasiModel->where('email', $email)->first();
+
+    if ($existingUser) {
+        // Gunakan password_verify untuk memeriksa kata sandi
+        if (password_verify($password, $existingUser['password'])) {
+            $response = [
+                'code' => 200,
+                'status' => 'success',
+                'messages' => 'Login successfully',
+                'data' => $existingUser
+            ];
+        } else {
+            $response = [
+                'code' => 402,
+                'status' => 'failed',
+                'messages' => 'Login Failed, password wrong',
+            ];
+        }
+    } else {
+        $response = [
+            'status' => 401,
+            'message' => 'Akun belum didaftarkan',
+        ];
+    }
+
+    return $this->respond($response);
+}
+
+    
 }
